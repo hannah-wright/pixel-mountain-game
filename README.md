@@ -9,10 +9,7 @@ It is a single self-contained React component that draws everything on an HTML
 canvas. No game engine, no sprite sheets, no external art. Every pixel is drawn
 with `fillRect`. That makes it small, fast, and easy to read and extend.
 
-![Gameplay: a pixel hiker climbing a sloped hill past a bear and a deer](docs/screenshot.png)
-
-> Note: add your own `docs/screenshot.png` if you want the image above to show.
-> The game needs no images to run.
+Run it locally with the steps below to see it in action.
 
 ## Features
 
