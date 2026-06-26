@@ -289,15 +289,15 @@ export const HikeGame = () => {
       const y = Math.round(slopeAt(c.x + 8));
       if (c.kind === "bear") {
         // Round dark-brown bear
-        ctx.fillStyle = "#3a2418";
+        ctx.fillStyle = "#6b4a2e";
         ctx.fillRect(xi, y - 10, 14, 10); // body
         ctx.fillRect(xi + 11, y - 13, 5, 5); // head
-        ctx.fillStyle = "#1c0f08";
+        ctx.fillStyle = "#4a3220";
         ctx.fillRect(xi + 14, y - 14, 1, 1); // ear
         ctx.fillRect(xi + 11, y - 14, 1, 1);
         ctx.fillStyle = "#ff2222";
         ctx.fillRect(xi + 14, y - 12, 1, 1); // eye glint
-        ctx.fillStyle = "#3a2418";
+        ctx.fillStyle = "#6b4a2e";
         ctx.fillRect(xi, y - 2, 3, 2); // legs
         ctx.fillRect(xi + 11, y - 2, 3, 2);
       } else if (c.kind === "lion") {
