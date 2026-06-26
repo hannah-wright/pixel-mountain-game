@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import "./styles.css";
 
-type Phase = "title" | "playing" | "celebrate" | "win";
+type Phase = "title" | "playing" | "summit" | "celebrate" | "win";
 
 type Confetto = { x: number; y: number; vx: number; vy: number; color: string };
 
 const CELEBRATE_SECONDS = 7;
+// On reaching the top, the hiker arrives on a rocky peak above the clouds and
+// jumps with a fist in the air before the "Whoo!" screen takes over.
+const ARRIVAL_WALK = 1.0;
+const ARRIVAL_SECONDS = 3.4;
+const SUMMIT_APEX_Y = 112; // rocky peak top the hiker stands on
+const SUMMIT_HERO_X = 156; // where the hiker stands and jumps on top
 
 // Rotating Marcus Aurelius quotes shown at the summit.
 const MARCUS_QUOTES = [
@@ -62,6 +68,7 @@ export const HikeGame = () => {
     spawnTimer: 0.8,
     bgScroll: 0,
     rngSeed: 1,
+    summitElapsed: 0,
     celebrateTimer: 0,
     celebrateElapsed: 0,
     finalTime: 0,
@@ -245,8 +252,8 @@ export const HikeGame = () => {
       }
     };
 
-    const drawPlayer = (y: number, hitFlash: number, elapsed: number) => {
-      const x = PLAYER_X;
+    const drawPlayer = (y: number, hitFlash: number, elapsed: number, atX = PLAYER_X) => {
+      const x = atX;
       const frame = Math.floor(elapsed * 8) % 2; // two-frame run cycle
       const yi = Math.round(y);
       const flashing = hitFlash > 0 && Math.floor(hitFlash * 20) % 2 === 0;
@@ -386,6 +393,90 @@ export const HikeGame = () => {
       ctx.fillStyle = "#f5d0c5";
       ctx.fillRect(x - 2, yi - 28, 3, 3); // left fist
       ctx.fillRect(x + 8, yi - 28, 3, 3); // right fist
+    };
+
+    // The shape of the rocky peak top near the hiker (rounded, not flat, not
+    // sloped). Returns the rock-surface y for a given x around the apex.
+    const rockTopY = (x: number) =>
+      SUMMIT_APEX_Y + Math.pow((x - SUMMIT_HERO_X) / 44, 2) * 12;
+
+    // The arrival scene: the hiker is on a rocky peak top, above a sea of
+    // clouds. Walks onto the rock, then jumps with a fist in the air.
+    const drawSummitScene = (t: number) => {
+      // Sky: dark up high, brightening to a high-altitude blue at the horizon.
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#0b0b22");
+      sky.addColorStop(0.55, "#274073");
+      sky.addColorStop(1, "#4f78b4");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // Stars, only up in the darker sky.
+      ctx.fillStyle = "#ffffff";
+      const stars: Array<[number, number]> = [
+        [22, 16], [64, 26], [112, 12], [168, 22], [214, 30],
+        [258, 14], [292, 24], [42, 40], [150, 44], [236, 38],
+      ];
+      stars.forEach(([sx, sy], i) => {
+        ctx.globalAlpha = Math.floor(t * 5 + i) % 3 === 0 ? 0.35 : 0.9;
+        ctx.fillRect(sx, sy, 1, 1);
+      });
+      ctx.globalAlpha = 1;
+
+      // Sea of clouds below: a filled band with a soft, puffy top edge.
+      const cloudY = 104;
+      ctx.fillStyle = "#9aa6cf";
+      ctx.fillRect(0, cloudY, W, H - cloudY);
+      const cloudEdge = (yy: number, r: number, color: string, step: number, off: number) => {
+        ctx.fillStyle = color;
+        for (let x = off; x < W + r; x += step) {
+          ctx.beginPath();
+          ctx.arc(x, yy, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      };
+      cloudEdge(cloudY, 9, "#cdd5ee", 15, 2);
+      cloudEdge(cloudY + 4, 8, "#b3bce0", 13, 8);
+      cloudEdge(cloudY + 2, 6, "#dfe5f6", 19, 12);
+
+      // The rocky peak (foreground), rising above the clouds. Rounded top.
+      ctx.fillStyle = "#473b36";
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      ctx.lineTo(0, 150);
+      ctx.quadraticCurveTo(54, 140, 104, 128);
+      ctx.quadraticCurveTo(SUMMIT_HERO_X, 110, 208, 128);
+      ctx.quadraticCurveTo(258, 140, W, 150);
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+      // Sunlit highlight along the rounded top.
+      ctx.strokeStyle = "#6b5a4e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(104, 127);
+      ctx.quadraticCurveTo(SUMMIT_HERO_X, 109, 208, 127);
+      ctx.stroke();
+      // Rock detail and a few snow patches.
+      ctx.fillStyle = "#332a26";
+      ctx.fillRect(96, 140, 6, 3);
+      ctx.fillRect(150, 150, 8, 3);
+      ctx.fillRect(214, 138, 5, 3);
+      ctx.fillStyle = "#eef0ff";
+      ctx.fillRect(132, 124, 5, 2);
+      ctx.fillRect(176, 126, 6, 2);
+
+      // The hiker: walk onto the rock, then jump in place with a fist up.
+      if (t < ARRIVAL_WALK) {
+        const p = t / ARRIVAL_WALK;
+        const ease = 1 - (1 - p) * (1 - p);
+        const x = SUMMIT_HERO_X - 40 + 40 * ease;
+        drawPlayer(rockTopY(x + 4), 0, t, x);
+      } else {
+        const jt = t - ARRIVAL_WALK;
+        const jump = Math.abs(Math.sin(jt * 5.5)) * 12; // happy hops
+        drawSummitHero(SUMMIT_HERO_X, SUMMIT_APEX_Y, jump);
+      }
     };
 
     const wrapText = (text: string, maxWidth: number): string[] => {
@@ -620,11 +711,20 @@ export const HikeGame = () => {
         // Reached the summit: start the on-canvas celebration first, then
         // show the results overlay after CELEBRATE_SECONDS.
         if (s.progress >= 1) {
-          s.phase = "celebrate";
+          // Reached the top: the hiker arrives on the rocky peak and jumps
+          // with a fist up before the "Whoo!" screen.
+          s.phase = "summit";
           s.finalTime = s.elapsed;
+          s.summitElapsed = 0;
+          s.critters = [];
+          setPhase("summit");
+        }
+      } else if (s.phase === "summit") {
+        s.summitElapsed += dt;
+        if (s.summitElapsed >= ARRIVAL_SECONDS) {
+          s.phase = "celebrate";
           s.celebrateTimer = CELEBRATE_SECONDS;
           s.celebrateElapsed = 0;
-          s.critters = [];
           // Pick the next quote in rotation so each summit differs.
           s.quote = MARCUS_QUOTES[s.quoteIdx % MARCUS_QUOTES.length];
           s.quoteIdx += 1;
@@ -673,6 +773,10 @@ export const HikeGame = () => {
       // ---- Draw ----
       if (s.phase === "celebrate" || s.phase === "win") {
         drawCelebration(s.celebrateElapsed, s.confetti, s.finalTime, s.quote, s.bestShown, s.hits);
+      } else if (s.phase === "summit") {
+        drawSummitScene(s.summitElapsed);
+        drawProgressBar(1, s.finalTime);
+        drawDamage(s.hits);
       } else {
         drawBackground(s.bgScroll, s.progress);
         for (const c of s.critters) drawCritter(c);
@@ -720,6 +824,7 @@ export const HikeGame = () => {
     s.spawnTimer = 1.0;
     s.bgScroll = 0;
     s.rngSeed = (Math.floor(Math.random() * 0xffffffff) >>> 0) || 1;
+    s.summitElapsed = 0;
     s.celebrateTimer = 0;
     s.celebrateElapsed = 0;
     s.finalTime = 0;
